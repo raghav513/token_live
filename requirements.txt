@@ -1,0 +1,6 @@
+streamlit
+pandas
+plotly
+nselib
+pandas_market_calendars
+openpyxl
