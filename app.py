@@ -9,11 +9,11 @@ from nselib import derivatives
 import pandas_market_calendars as mcal
 
 # Set up the Streamlit app with page configuration
-st.set_page_config(page_title="Trading Analysis Dashboard", layout="wide")
+st.set_page_config(page_title="Stock CR Token", layout="wide")
 
 # Create a sidebar for navigation
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Select Page", ["NSE Derivatives Analysis", "POS File Dashboard"])
+page = st.sidebar.radio("Select Page", ["Stock CR Token", "POS File Dashboard"])
 
 # Initialize session state variables if they don't exist
 if 'm2m' not in st.session_state:
