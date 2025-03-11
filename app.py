@@ -382,7 +382,7 @@ def pos_file_dashboard():
         st.info("Please upload the POS Excel file.")
 
 # Main app logic - Display the selected page
-if page == "NSE Derivatives Analysis":
+if page == "Stock CR Token":
     nse_derivatives_page()
 else:
     pos_file_dashboard()
