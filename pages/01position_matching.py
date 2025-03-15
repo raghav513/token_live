@@ -148,7 +148,7 @@ if uploaded_file is not None:
                         # If CE and PE do not balance out, store the mismatch
                         if ce_quantity + pe_quantity != 0:
                             mismatch_strikes.append((stock, strike, ce_quantity, pe_quantity, fx_quantity))
-                        if ce_quantity + pe_quantity == 0:
+                        else:
                             if ce_sum + fx_quantity != 0:
                                 Future_mismatch.append((stock, fx_quantity,ce_sum))
 
