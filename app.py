@@ -1,42 +1,27 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import re
-import base64
-import io
-import plotly.express as px
-from nselib import derivatives
 import pandas_market_calendars as mcal
+from nselib import derivatives
 
-st.title("STOCK CR TOKEN")
-st.write("This app generates stock CR token.")
+st.title("📈 STOCK CR TOKEN")
+st.write("Generate stock CR token from NSE BhavCopy. If automatic fetch fails, upload your own CSV file.")
 
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Select Page", "Stock CR Token")
-
-if 'm2m' not in st.session_state:
-    st.session_state.m2m = None
+# Sidebar inputs
+st.sidebar.title("Token Parameters")
+date = st.sidebar.date_input("Select Date", datetime.date.today())
+months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+selected_month = st.sidebar.selectbox("Select Expiry Month", months, index=datetime.datetime.now().month - 1)
+oi_threshold = st.sidebar.number_input("OI Threshold", min_value=1, value=4)
+atm_percentage = st.sidebar.slider("ATM Range %", 1, 20, 8)
+sort_ascending = st.sidebar.checkbox("Sort Ascending", value=True)
 
 def is_trading_day(date):
     nse = mcal.get_calendar('NSE')
     schedule = nse.schedule(start_date=date, end_date=date)
     return not schedule.empty
 
-def run_analysis(date_str, month, oi_threshold, atm_percentage):
-    try:
-        date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d')
-        formatted_date = date_obj.strftime('%d-%m-%Y')
-
-        data = derivatives.fno_bhav_copy(formatted_date)
-        if data.empty:
-            return None, "Unable to fetch Bhavcopy from NSE. Please upload manually."
-
-        return run_analysis_common(data, month, oi_threshold, atm_percentage)
-
-    except Exception as e:
-        return None, f"Error: {str(e)}"
-
-def run_analysis_common(data, month, oi_threshold, atm_percentage):
+def process_bhavcopy(data, month, oi_threshold, atm_percentage):
     try:
         data = data[data['FinInstrmNm'].str.contains(month)].copy()
         if data.empty:
@@ -52,7 +37,7 @@ def run_analysis_common(data, month, oi_threshold, atm_percentage):
         )
         df = data[mask].copy()
         if df.empty:
-            return None, "No matching data after applying filters."
+            return None, "No data after applying CE/PE filter."
 
         atm_decimal = atm_percentage / 100
         df['atm_con'] = df.apply(
@@ -67,8 +52,9 @@ def run_analysis_common(data, month, oi_threshold, atm_percentage):
         mask01 = mask01[mask01['open_int'] > oi_threshold]
         mask02 = df[df['atm_con'] == "False"]
         df1 = pd.merge(mask01, mask02, how='outer')
+
         if df1.empty:
-            return None, "No data after applying OI threshold filter."
+            return None, "No data after OI filtering."
 
         df2 = pd.DataFrame(df1['FinInstrmNm'])
         df2['copy_fin'] = df2['FinInstrmNm'].str[:-2] + 'PE'
@@ -91,93 +77,68 @@ def run_analysis_common(data, month, oi_threshold, atm_percentage):
         for col in df_filtered.columns:
             if df_filtered[col].dtype == object:
                 mask |= df_filtered[col].str.contains('\.', na=False)
-        df5 = df_filtered[~mask]
-        df5 = df5.sort_values(by='All Columns')
+        df_final = df_filtered[~mask]
+        df_final = df_final.sort_values(by='All Columns')
 
-        return df5, None
+        return df_final, None
 
     except Exception as e:
-        return None, f"Error in processing: {str(e)}"
+        return None, f"Processing error: {str(e)}"
 
-# Sidebar controls
-derivatives_sidebar = st.sidebar.expander("Token Parameters", expanded=True)
-with derivatives_sidebar:
-    today = datetime.date.today()
-    date = st.date_input("Select Date", today)
-    months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
-    selected_month = st.selectbox("Select Expiry Month", months, index=today.month - 1)
-    oi_threshold = st.number_input("OI Threshold", min_value=1, value=4)
-    atm_percentage = st.slider("ATM Range Percentage", min_value=1, max_value=20, value=8)
-    sort_ascending = st.checkbox("Sort Ascending", value=True)
-
+# Trigger logic
 if st.button("Generate Token"):
-    if not is_trading_day(date):
-        st.warning(f"Selected date ({date}) may not be a trading day.")
-
     date_str = date.strftime('%Y-%m-%d')
 
-    with st.spinner("Processing data..."):
-        result_df, error = run_analysis(date_str, selected_month, oi_threshold, atm_percentage)
+    st.info(f"Checking data for: {date_str}")
+    with st.spinner("Fetching BhavCopy..."):
+        try:
+            formatted_date = date.strftime('%d-%m-%Y')
+            data = derivatives.fno_bhav_copy(formatted_date)
+        except Exception as e:
+            data = pd.DataFrame()
 
-    if error and "upload manually" in error:
-        st.warning(error)
-        uploaded_file = st.file_uploader("Upload Bhavcopy CSV File", type=["csv"])
+    if data.empty:
+        st.warning("⚠️ Unable to fetch BhavCopy from NSE. Please upload it manually below.")
+        uploaded_file = st.file_uploader("Upload BhavCopy CSV", type=['csv'])
         if uploaded_file:
-            uploaded_data = pd.read_csv(uploaded_file)
-            with st.spinner("Processing uploaded file..."):
-                result_df, error = run_analysis_common(uploaded_data, selected_month, oi_threshold, atm_percentage)
+            try:
+                data = pd.read_csv(uploaded_file)
+                result_df, error = process_bhavcopy(data, selected_month, oi_threshold, atm_percentage)
+            except Exception as e:
+                st.error(f"Upload error: {e}")
+                result_df, error = None, str(e)
+        else:
+            result_df, error = None, "No file uploaded."
+    else:
+        result_df, error = process_bhavcopy(data, selected_month, oi_threshold, atm_percentage)
 
+    # Display results
     if error:
         st.error(error)
     elif result_df is not None:
         result_df = result_df.sort_values(by='All Columns', ascending=sort_ascending)
-        st.success("Token Generated successfully!")
 
-        st.subheader("Show Token")
+        st.success("✅ Token Generated")
         st.dataframe(result_df)
 
-        futures_count = result_df['All Columns'].str.contains('FUT$', regex=True).sum()
-        ce_count = result_df['All Columns'].str.contains('CE$', regex=True).sum()
-        pe_count = result_df['All Columns'].str.contains('PE$', regex=True).sum()
+        futures_count = result_df['All Columns'].str.contains('FUT$').sum()
+        ce_count = result_df['All Columns'].str.contains('CE$').sum()
+        pe_count = result_df['All Columns'].str.contains('PE$').sum()
 
-        st.subheader("Download Options")
         col1, col2 = st.columns(2)
         with col1:
-            csv = result_df.to_csv(index=False).encode('utf-8')
-            st.download_button("Download CSV", csv, f"stock_crtoken_{date_str}_{selected_month}.csv", "text/csv")
+            csv = result_df.to_csv(index=False).encode()
+            st.download_button("Download CSV", csv, "stock_tokens.csv", "text/csv")
         with col2:
-            text_content = "\n".join(result_df['All Columns'].tolist()).encode('utf-8')
-            st.download_button("Download TXT", text_content, f"stock_crtoken_{date_str}_{selected_month}.txt", "text/plain")
+            text = "\n".join(result_df['All Columns'].tolist()).encode()
+            st.download_button("Download TXT", text, "stock_tokens.txt", "text/plain")
 
-        st.subheader("Summary")
-        st.write(f"Total tokens: {len(result_df)}")
-        st.write(f"- Futures: {futures_count}")
-        st.write(f"- Call Options (CE): {ce_count}")
-        st.write(f"- Put Options (PE): {pe_count}")
-        st.write(f"Parameters: Date={date}, Month={selected_month}, OI Threshold={oi_threshold}, ATM={atm_percentage}%")
-        st.write(f"Sorted: {'Ascending' if sort_ascending else 'Descending'}")
-
-        st.subheader("Distribution")
-        chart_data = pd.DataFrame({
-            'Type': ['Futures', 'Call Options', 'Put Options'],
-            'Count': [futures_count, ce_count, pe_count]
-        })
-        st.bar_chart(chart_data.set_index('Type'))
-
-with st.expander("About Stock CR Token"):
-    st.info("""
-    This tool retrieves NSE derivatives data and filters based on:
-    - Expiry month
-    - Open Interest (OI) threshold
-    - ATM deviation from underlying price
-    - PE/CE logic
-    """)
-
-    st.subheader("ATM Range Explanation")
-    st.info(f"""
-    - A {atm_percentage}% setting includes strikes more than {atm_percentage}% above or below the underlying price only if OI > threshold.
-    - Lower % = tighter ATM range; higher % = broader selection.
-    """)
+        st.markdown("### 📊 Token Summary")
+        st.write(f"Total: {len(result_df)} | Futures: {futures_count} | CE: {ce_count} | PE: {pe_count}")
+        st.bar_chart(pd.DataFrame({
+            "Type": ["Futures", "CE", "PE"],
+            "Count": [futures_count, ce_count, pe_count]
+        }).set_index("Type"))
 
 st.markdown("---")
-st.markdown("Trading Analysis Dashboard | Created with Streamlit")
+st.info("If automatic BhavCopy fetch fails, you can download it from [NSE Website](https://www.nseindia.com/all-reports-derivatives) and upload here.")
