@@ -75,8 +75,6 @@ if uploaded_file:
     st.subheader(f"Summary Table Expiry-{exp}")
     st.dataframe(df_filtered)
 
-    st.subheader("Summary Table")
-    st.dataframe(df_traded)
     
     # Download CSV
     csv = df_summary.to_csv(index=False).encode('utf-8')
