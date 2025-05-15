@@ -5,9 +5,9 @@ import base64
 import io
 import plotly.express as px
 
-st.set_page_config(page_title="Algotrade Performance Dashboard", layout="wide")
+st.set_page_config(page_title=" Performance Dashboard", layout="wide")
 
-st.title("Algotrade Performance Dashboard")
+st.title("Box Performance Dashboard")
 
 # Helper function
 def parse_data(file):
@@ -71,9 +71,13 @@ if uploaded_file:
         df_filtered = df_summary
 
     # Display summary table
-    st.subheader("Summary Table")
+    exp = df_traded['expiry'].iloc[0]
+    st.subheader(f"Summary Table Expiry-{exp}")
     st.dataframe(df_filtered)
 
+    st.subheader("Summary Table")
+    st.dataframe(df_traded)
+    
     # Download CSV
     csv = df_summary.to_csv(index=False).encode('utf-8')
     st.download_button("Download CSV", csv, "processed_data.csv", "text/csv")
