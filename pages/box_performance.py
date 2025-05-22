@@ -66,9 +66,9 @@ def parse_data(file):
     summary = []
     for i in sorted(df['box_size'].unique()):
         df1 = df[df['box_size'] == i]
-        total = df1['open_cls'].sum()
-        correct = df1[df1['wrong_right'] == 'right']['open_cls'].sum()
-        wrong = df1[df1['wrong_right'] == 'wrong']['open_cls'].sum()
+        total = df1['open_cls'].abs().sum()
+        correct = df1[df1['wrong_right'] == 'right']['open_cls'].abs().sum()
+        wrong = df1[df1['wrong_right'] == 'wrong']['open_cls'].abs().sum()
         pos_alpha = df1[df1['wrong_right'] == 'right']['parity_diff'].sum() * lot_size
         neg_alpha = df1[df1['wrong_right'] == 'wrong']['parity_diff'].sum() * lot_size
         net_alpha = pos_alpha + neg_alpha
