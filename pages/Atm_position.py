@@ -26,7 +26,7 @@ def parse_pos_contents(file, atm_range_value):
             return None
 
         # Filter out rows where BF Qty is 0
-        data = data[data['BF Qty'] != 0]
+        data = data[data['Net Qty'] != 0]
         
         # Separate Futures and Options
         fut = data[data['Call/Put'] == 'FF']
@@ -49,7 +49,7 @@ def parse_pos_contents(file, atm_range_value):
 
         # Display ATM data
         if not ATM.empty:
-            ATM = ATM[['Scrip', 'Call/Put', 'Exp Date', 'STK', 'BF Qty']]
+            ATM = ATM[['Scrip', 'Call/Put', 'Exp Date', 'STK', 'Net Qty']]
             with st.expander("At Money Position", expanded=True):
                 st.dataframe(ATM)
                 
