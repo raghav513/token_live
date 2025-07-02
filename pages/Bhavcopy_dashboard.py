@@ -155,7 +155,7 @@ with tab2:
         aspect='auto',
         color_continuous_scale='RdBu',
         zmin=-100, zmax=100,
-        labels=dict(x="Date", y="Strike", color="% Change OI"),
+        labels=dict(x="Date", y="Strike", color="% Change"),
         title=f"{stock_to_track} - % Change in Traded Value (Calls)"
     )
     st.plotly_chart(fig_calls, use_container_width=True)
@@ -169,7 +169,7 @@ with tab2:
         aspect='auto',
         color_continuous_scale='RdBu',
         zmin=-100, zmax=100,
-        labels=dict(x="Date", y="Strike", color="% Change OI"),
+        labels=dict(x="Date", y="Strike", color="% Change "),
         title=f"{stock_to_track} - % Change in Traded Value (Puts)"
     )
     st.plotly_chart(fig_puts, use_container_width=True)
