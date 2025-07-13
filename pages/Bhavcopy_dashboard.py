@@ -27,7 +27,7 @@ date_str = selected_date.strftime('%d-%m-%Y')
 expiry_str = selected_expiry.strftime('%Y-%m-%d')
 
 # Tabs
-tab1, tab2 = st.tabs(["📊 Top 30 + Top 5 Analysis", "📈 Trend Analysis"])
+tab1, tab2 = st.tabs(["📊 Top 30 by Traded Value ", "📈 Trend Analysis"])
 
 with tab1:
     st.subheader(f"Top Stocks by Traded Value on {date_str}")
@@ -97,11 +97,12 @@ with tab2:
     for date in date_range:
         try:
             d = derivatives.fno_bhav_copy(date.strftime('%d-%m-%Y'))
+            daily_cls = d[(d['TckrSymb']==stock_to_track)&(d['XpryDt']==expiry_str)&(d['FinInstrmNm'].str.contains('FUT'))]['ClsPric'].iloc[0]
             d = d.dropna(subset=['StrkPric', 'OptnTp'])
             d = d[(d['TckrSymb'] == stock_to_track) & (d['XpryDt'] == expiry_str)].copy()
             d['total_traded_value'] = calculate_traded_value(d, selected_value_parameter)
             total_val = d['total_traded_value'].sum()
-            collected_data.append((date.strftime('%d-%m-%Y'), total_val))
+            collected_data.append((date.strftime('%d-%m-%Y'), total_val,daily_cls))
             strike_data.append(d)
             d = d[['StrkPric', 'OptnTp', 'total_traded_value']].copy()
             d['date'] = date.strftime('%Y-%m-%d')
@@ -109,15 +110,34 @@ with tab2:
         except:
             continue
 
-    trend_df = pd.DataFrame(collected_data, columns=['date', 'total_traded_value'])
+    trend_df = pd.DataFrame(collected_data, columns=['date', 'total_traded_value','daily_close'])
     trend_df['total_traded_value'] = trend_df['total_traded_value'] / 1e7
 
     if not trend_df.empty:
         fig_trend = px.line(trend_df, x='date', y='total_traded_value',
-                            title=f"{stock_to_track} Traded Value Trend",
+                            title=f"{stock_to_track} Traded Value & Daily Close Trend",
                             labels={'date': 'Date', 'total_traded_value': '₹ Cr'})
-        fig_trend.update_traces(mode='lines+markers')
+
+        fig_trend.update_traces(mode='lines+markers', name='Traded Value (₹ Cr)',showlegend=True)
+
+        # Add daily close as a secondary y-axis trace
+        fig_trend.add_scatter(x=trend_df['date'],
+                            y=trend_df['daily_close'],
+                            mode='lines+markers',
+                            name='Daily Close',
+                            yaxis='y2')
+
+        # Update layout to include secondary y-axis
+        fig_trend.update_layout(
+            yaxis=dict(title='Traded Value (₹ Cr)'),
+            yaxis2=dict(title='Daily Close Price',
+                        overlaying='y',
+                        side='right'),
+            legend=dict(x=0, y=1.1, orientation='h')
+        )
+
         st.plotly_chart(fig_trend, use_container_width=True)
+
     else:
         st.warning("No data available for trend.")
 
