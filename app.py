@@ -153,7 +153,7 @@ with derivatives_sidebar:
     selected_month = st.selectbox("Select Expiry Month", months, index=current_month_index)
     
     # OI threshold
-    oi_threshold = st.number_input("OI Threshold", min_value=1, value=4)
+    oi_threshold = st.number_input("OI Threshold", min_value=0, value=0)
     
     # ATM percentage
     atm_percentage = st.slider(

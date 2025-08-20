@@ -4,6 +4,11 @@ import numpy as np
 import datetime as dt
 from nselib import derivatives, capital_market
 import plotly.express as px
+import logging
+import traceback
+import yfinance as yf
+import concurrent.futures
+import pytz
 
 st.set_page_config(layout="wide", page_title="Bhavcopy Dashboard")
 
@@ -27,7 +32,7 @@ date_str = selected_date.strftime('%d-%m-%Y')
 expiry_str = selected_expiry.strftime('%Y-%m-%d')
 
 # Tabs
-tab1, tab2 = st.tabs(["📊 Top 30 by Traded Value ", "📈 Trend Analysis"])
+tab1, tab2, tab3 = st.tabs(["📊 Top 30 by Traded Value ", "📈 Trend Analysis","🔝 Top Traded Option Value"])
 
 with tab1:
     st.subheader(f"Top Stocks by Traded Value on {date_str}")
@@ -194,4 +199,61 @@ with tab2:
     )
     st.plotly_chart(fig_puts, use_container_width=True)
 
+with tab3:
+    st.subheader("Top 10 Stocks by Traded Value in Calls & Puts (Live Option Chain)")
 
+    def get_ltp(stock):
+        try:
+            stock_full = stock.upper() + '.NS'
+            data = yf.Ticker(stock_full).get_info()
+            return data.get('currentPrice') or data.get('regularMarketPrice')
+        except Exception as e:
+            return None
+
+    def process_stock(stock):
+        try:
+            ltp = get_ltp(stock)
+            if ltp is None:
+                return None, None
+            data = derivatives.nse_live_option_chain(stock)
+            lot_size = data[data['CALLS_Ask_Qty'] != 0]['CALLS_Ask_Qty'].min()
+            lot_size = 1 if pd.isna(lot_size) or lot_size == 0 else lot_size
+            data['Lot_Size'] = lot_size
+            calls = data[data['Strike_Price'] <= ltp].copy()
+            puts = data[data['Strike_Price'] >= ltp].copy()
+            return calls, puts
+        except Exception as e:
+            return None, None
+
+    if st.button("Run Live Analysis"):
+        with st.spinner("Fetching live option data..."):
+            stocks = stock_list
+            result_call, result_put = [], []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                results = list(executor.map(process_stock, stocks))
+            for calls, puts in results:
+                if calls is not None:
+                    result_call.append(calls)
+                if puts is not None:
+                    result_put.append(puts)
+
+            if result_call:
+                df_call = pd.concat(result_call)
+                df_call['CALLS_Trade_Value'] = df_call['CALLS_Volume'] * df_call['CALLS_LTP'] * df_call['Lot_Size']
+                top_calls = df_call.groupby('Symbol')['CALLS_Trade_Value'].sum().sort_values(ascending=False).head(10).reset_index()
+                fig_call = px.bar(top_calls, x='Symbol', y='CALLS_Trade_Value',
+                                  title='Top 10 Stocks by CALL Traded Value (₹ Cr)',
+                                  labels={'CALLS_Trade_Value': '₹ Cr'}, color_discrete_sequence=['green'])
+                st.plotly_chart(fig_call, use_container_width=True)
+
+            if result_put:
+                df_put = pd.concat(result_put)
+                df_put['PUTS_Trade_Value'] = df_put['PUTS_Volume'] * df_put['PUTS_LTP'] * df_put['Lot_Size']
+                top_puts = df_put.groupby('Symbol')['PUTS_Trade_Value'].sum().sort_values(ascending=False).head(10).reset_index()
+                fig_put = px.bar(top_puts, x='Symbol', y='PUTS_Trade_Value',
+                                 title='Top 10 Stocks by PUT Traded Value (₹ Cr)',
+                                 labels={'PUTS_Trade_Value': '₹ Cr'}, color_discrete_sequence=['red'])
+                st.plotly_chart(fig_put, use_container_width=True)
+
+        ist = pytz.timezone('Asia/Kolkata')
+        st.caption(f"Updated at: {pd.Timestamp.now(tz=ist).strftime('%Y-%m-%d %H:%M:%S IST')}")
