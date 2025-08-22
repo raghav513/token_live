@@ -17,7 +17,8 @@ st.title("📈 NSE F&O Bhavcopy Dashboard")
 # Sidebar inputs
 st.sidebar.header("Input Parameters")
 stock_list = list(capital_market.fno_equity_list()['symbol'])
-stock_list.append(['NIFTY','BANKNIFTY'])
+stock_list.append('NIFTY')
+stock_list.append('BANKNIFTY')
 selected_value_parameter = st.sidebar.selectbox(
     "Select Metric for Traded Value Calculation",
     options=["Volume", "Open Interest", "Change in OI"]
