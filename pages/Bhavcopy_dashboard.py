@@ -61,7 +61,7 @@ with tab1:
     data = data[data['XpryDt'] == expiry_str]
 
     
-    #data = data[data['TckrSymb'].isin(stock_list)]
+    #data = data[data['TckrSymb'].isin(stock_list)]-
 
     traded_val_df = data.groupby('TckrSymb')['total_traded_value'].sum().reset_index()
     traded_val_df['total_traded_value'] = traded_val_df['total_traded_value'] / 1e7  # in ₹ Cr
