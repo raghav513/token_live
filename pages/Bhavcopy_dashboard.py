@@ -23,7 +23,7 @@ selected_value_parameter = st.sidebar.selectbox(
     options=["Volume", "Open Interest", "Change in OI"]
 )
 selected_date = st.sidebar.date_input("Select Bhavcopy Date", dt.date.today())
-selected_expiry = st.sidebar.date_input("Select Expiry Date", dt.date(2025, 7, 31))
+selected_expiry = st.sidebar.date_input("Select Expiry Date", dt.date(2025, 8, 28))
 stock_to_track = st.sidebar.selectbox("Stock Symbol for Trend Analysis",options=stock_list)
 selected_start_date = st.sidebar.date_input('select start date for trend Analysis')
 
